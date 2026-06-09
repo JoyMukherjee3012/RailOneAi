@@ -24,15 +24,19 @@ function Emergency() {
   const [activeIncident, setActiveIncident] = useState<string | null>(null);
   
   useEffect(() => {
-    // Real-time listener for the incidents collection in Firestore
-    const unsub = onSnapshot(collection(db, "incidents"), async (snapshot) => {
-      if (snapshot.empty) {
-        // If Firestore is empty, seed it via getIncidents
-        const data = await getIncidents();
-        setIncidents(data);
-      } else {
+    // 1. Trigger the seeding/one-time fetch on mount
+    getIncidents().then((data) => {
+      setIncidents(data);
+    });
+
+    // 2. Subscribe to real-time updates without performing writes (seeding) inside the listener
+    const unsub = onSnapshot(collection(db, "incidents"), (snapshot) => {
+      if (!snapshot.empty) {
         const incidentData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setIncidents(incidentData);
+        const hasER = incidentData.some((i: any) => i.longitude && i.longitude > 80 && i.longitude < 95);
+        if (hasER) {
+          setIncidents(incidentData);
+        }
       }
     });
 
