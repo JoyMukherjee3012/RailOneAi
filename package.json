@@ -1,8 +1,9 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "railone-ai",
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "engines": { "node": ">=20" },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
