@@ -172,8 +172,19 @@ export async function getIncidents() {
   try {
     const querySnapshot = await getDocs(collection(db, "incidents"));
     
-    if (querySnapshot.empty) {
-      console.log("No incidents found in Firestore, seeding defaults...");
+    const hasERIncidents = querySnapshot.docs.some(doc => {
+      const data = doc.data();
+      return data.longitude && data.longitude > 80 && data.longitude < 95;
+    });
+    
+    if (!hasERIncidents) {
+      console.log("No Eastern Railway incidents found in Firestore, clearing old ones and seeding defaults...");
+      
+      // Delete old non-ER incidents
+      for (const d of querySnapshot.docs) {
+        await deleteDoc(doc(db, "incidents", d.id));
+      }
+
       const allStations = await getERStations();
       const erStations = allStations.filter(s => s.geometry !== null && s.geometry.coordinates);
       
