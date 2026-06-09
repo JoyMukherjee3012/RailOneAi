@@ -68,7 +68,7 @@ function getGeminiClient() {
 }
 
 export const askGeminiServer = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ prompt: z.string().min(1), context: z.string() }))
+  .validator(z.object({ prompt: z.string().min(1), context: z.string() }))
   .handler(async ({ data }) => {
     const model = getGeminiClient();
     const fullPrompt = `Context (Live Local Data):\n${data.context}\n\nUser Request: ${data.prompt}`;
@@ -77,7 +77,7 @@ export const askGeminiServer = createServerFn({ method: "POST" })
   });
 
 export const askGeminiVisionServer = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     z.object({
       prompt: z.string().min(1),
       base64Image: z.string(),
