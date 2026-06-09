@@ -1,4 +1,6 @@
 import * as Papa from 'papaparse';
+import { collection, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { db } from "@/integrations/firebase/client";
 
 export interface StationProperties {
   state: string | null;
@@ -217,29 +219,28 @@ export interface Drone {
   updated_at?: string;
 }
 
-export function getDrones(): Drone[] {
+export async function getDrones(): Promise<Drone[]> {
   try {
-    const data = localStorage.getItem('railone_drones');
-    if (data) return JSON.parse(data);
+    const querySnapshot = await getDocs(collection(db, "drones_fleet"));
+    const drones: Drone[] = [];
+    querySnapshot.forEach((doc) => {
+      drones.push({ id: doc.id, ...doc.data() } as Drone);
+    });
+    return drones;
   } catch (e) {
-    console.error('Failed to read drones from local storage', e);
+    console.error('Failed to read drones from Firestore', e);
+    return [];
   }
-  return [];
 }
 
-export function saveDrone(drone: Omit<Drone, 'id'>): Drone {
-  const drones = getDrones();
-  const newDrone: Drone = {
+export async function saveDrone(drone: Omit<Drone, 'id'>): Promise<Drone> {
+  const docRef = await addDoc(collection(db, "drones_fleet"), drone);
+  return {
     ...drone,
-    id: `DRN-${Date.now()}`
+    id: docRef.id
   };
-  drones.push(newDrone);
-  localStorage.setItem('railone_drones', JSON.stringify(drones));
-  return newDrone;
 }
 
-export function deleteDrone(id: string): void {
-  const drones = getDrones();
-  const updatedDrones = drones.filter(d => d.id !== id);
-  localStorage.setItem('railone_drones', JSON.stringify(updatedDrones));
+export async function deleteDrone(id: string): Promise<void> {
+  await deleteDoc(doc(db, "drones_fleet", id));
 }
