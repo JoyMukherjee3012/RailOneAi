@@ -169,42 +169,61 @@ export async function getTrackDefects() {
 }
 
 export async function getIncidents() {
-  const allStations = await getERStations();
-  const erStations = allStations.filter(s => s.geometry !== null && s.geometry.coordinates);
-  
-  const incidents = [];
-  if (erStations.length > 1) {
-    for (let i = 0; i < Math.min(6, erStations.length - 1); i++) {
-      const isBetween = i % 2 !== 0;
-      const stationA = erStations[(i * 3) % erStations.length];
+  try {
+    const querySnapshot = await getDocs(collection(db, "incidents"));
+    
+    if (querySnapshot.empty) {
+      console.log("No incidents found in Firestore, seeding defaults...");
+      const allStations = await getERStations();
+      const erStations = allStations.filter(s => s.geometry !== null && s.geometry.coordinates);
       
-      let lat = stationA.geometry!.coordinates[1];
-      let lng = stationA.geometry!.coordinates[0];
-      let desc = `Reported incident at ${stationA.properties.name} (${stationA.properties.code}).`;
-      
-      if (isBetween) {
-        const stationB = erStations[(i * 3 + 1) % erStations.length];
-        lat = (stationA.geometry!.coordinates[1] + stationB.geometry!.coordinates[1]) / 2;
-        lng = (stationA.geometry!.coordinates[0] + stationB.geometry!.coordinates[0]) / 2;
-        desc = `Incident reported between ${stationA.properties.name} and ${stationB.properties.name}.`;
-      }
+      const incidents = [];
+      if (erStations.length > 1) {
+        for (let i = 0; i < Math.min(6, erStations.length - 1); i++) {
+          const isBetween = i % 2 !== 0;
+          const stationA = erStations[(i * 3) % erStations.length];
+          
+          let lat = stationA.geometry!.coordinates[1];
+          let lng = stationA.geometry!.coordinates[0];
+          let desc = `Reported incident at ${stationA.properties.name} (${stationA.properties.code}).`;
+          
+          if (isBetween) {
+            const stationB = erStations[(i * 3 + 1) % erStations.length];
+            lat = (stationA.geometry!.coordinates[1] + stationB.geometry!.coordinates[1]) / 2;
+            lng = (stationA.geometry!.coordinates[0] + stationB.geometry!.coordinates[0]) / 2;
+            desc = `Incident reported between ${stationA.properties.name} and ${stationB.properties.name}.`;
+          }
 
-      incidents.push({
-        id: `INC-${1000 + i}`,
-        incident_type: i === 0 ? 'Major Fire' : (i === 1 ? 'Derailment Risk' : 'Signal Failure'),
-        severity: i === 0 ? 'critical' : (i === 1 || i === 3 ? 'high' : 'medium'),
-        status: 'Active',
-        description: desc,
-        latitude: lat,
-        longitude: lng,
-        police_notified: true,
-        firefighters_notified: i === 0,
-        hospitals_notified: i === 0 || i === 1,
-        created_at: new Date(Date.now() - i * 1800000).toISOString(),
-      });
+          const newIncident = {
+            incident_type: i === 0 ? 'Major Fire' : (i === 1 ? 'Derailment Risk' : 'Signal Failure'),
+            severity: i === 0 ? 'critical' : (i === 1 || i === 3 ? 'high' : 'medium'),
+            status: 'Active',
+            description: desc,
+            latitude: lat,
+            longitude: lng,
+            police_notified: false,
+            firefighters_notified: false,
+            hospitals_notified: false,
+            engineers_notified: false,
+            created_at: new Date(Date.now() - i * 1800000).toISOString(),
+          };
+
+          const docRef = await addDoc(collection(db, "incidents"), newIncident);
+          incidents.push({ id: docRef.id, ...newIncident });
+        }
+      }
+      return incidents;
     }
+
+    const incidents: any[] = [];
+    querySnapshot.forEach((doc) => {
+      incidents.push({ id: doc.id, ...doc.data() });
+    });
+    return incidents;
+  } catch (e) {
+    console.error('Failed to read incidents from Firestore', e);
+    return [];
   }
-  return incidents;
 }
 
 // Local Storage for Drones

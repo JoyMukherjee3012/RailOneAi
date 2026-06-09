@@ -31,6 +31,7 @@ export interface Incident {
   police_notified: boolean;
   firefighters_notified: boolean;
   hospitals_notified: boolean;
+  engineers_notified?: boolean;
   created_at: string;
 }
 

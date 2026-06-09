@@ -22,31 +22,40 @@ function useCountdown(start: number) {
 function Emergency() {
   const [incidents, setIncidents] = useState<any[]>([]);
   const [activeIncident, setActiveIncident] = useState<string | null>(null);
-  const [dispatched, setDispatched] = useState<Record<string, { hospital?: boolean; fire?: boolean; police?: boolean; engineer?: boolean }>>({});
   
   useEffect(() => {
-    getIncidents().then(data => {
-      setIncidents(data);
-    });
-
-    const unsub = onSnapshot(collection(db, "emergency_dispatches"), (snapshot) => {
-      const dispatchState: any = {};
-      snapshot.forEach(doc => {
-        dispatchState[doc.id] = doc.data();
-      });
-      setDispatched(dispatchState);
+    // Real-time listener for the incidents collection in Firestore
+    const unsub = onSnapshot(collection(db, "incidents"), async (snapshot) => {
+      if (snapshot.empty) {
+        // If Firestore is empty, seed it via getIncidents
+        const data = await getIncidents();
+        setIncidents(data);
+      } else {
+        const incidentData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setIncidents(incidentData);
+      }
     });
 
     return () => unsub();
   }, []);
+
   const eta = useCountdown(485);
 
   const handleDispatch = async (incidentId: string, service: 'hospital' | 'fire' | 'police' | 'engineer') => {
     try {
-      await setDoc(doc(db, "emergency_dispatches", incidentId), {
-        [service]: true
+      const fieldMap = {
+        hospital: 'hospitals_notified',
+        fire: 'firefighters_notified',
+        police: 'police_notified',
+        engineer: 'engineers_notified'
+      };
+      const field = fieldMap[service];
+      
+      await setDoc(doc(db, "incidents", incidentId), {
+        [field]: true
       }, { merge: true });
-      toast.success(`${service.toUpperCase()} dispatched to incident ${incidentId}.`);
+      
+      toast.success(`${service.toUpperCase()} dispatched to incident.`);
     } catch (e: any) {
       toast.error(`Dispatch failed: ${e.message}`);
     }
@@ -72,29 +81,29 @@ function Emergency() {
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">{i.description}</div>
                 <div className="text-[10px] mt-2 font-mono flex items-center gap-1 text-muted-foreground">
-                  <MapPin className="w-3 h-3" />{i.latitude.toFixed(3)}, {i.longitude.toFixed(3)}
+                  <MapPin className="w-3 h-3" />{i.latitude?.toFixed(3)}, {i.longitude?.toFixed(3)}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <DispatchButton 
-                    active={dispatched[i.id]?.hospital} 
+                    active={i.hospitals_notified} 
                     icon={Ambulance} 
                     label="Hospital" 
                     onClick={(e: any) => { e.stopPropagation(); handleDispatch(i.id, 'hospital'); }} 
                   />
                   <DispatchButton 
-                    active={dispatched[i.id]?.fire} 
+                    active={i.firefighters_notified} 
                     icon={Flame} 
                     label="Fire" 
                     onClick={(e: any) => { e.stopPropagation(); handleDispatch(i.id, 'fire'); }} 
                   />
                   <DispatchButton 
-                    active={dispatched[i.id]?.police} 
+                    active={i.police_notified} 
                     icon={Shield} 
                     label="Police" 
                     onClick={(e: any) => { e.stopPropagation(); handleDispatch(i.id, 'police'); }} 
                   />
                   <DispatchButton 
-                    active={dispatched[i.id]?.engineer} 
+                    active={i.engineers_notified} 
                     icon={Wrench} 
                     label="Engineers" 
                     onClick={(e: any) => { e.stopPropagation(); handleDispatch(i.id, 'engineer'); }} 
@@ -124,10 +133,11 @@ function Emergency() {
         </Card>
         <Card className="glass border-border/60 p-5">
           <div className="text-sm font-semibold">Resources dispatched</div>
-          <div className="grid grid-cols-3 gap-2 mt-2 text-center">
-            <ResourceCount n="04" label="Ambulance" />
-            <ResourceCount n="02" label="Fire" />
-            <ResourceCount n="06" label="Police" />
+          <div className="grid grid-cols-4 gap-2 mt-2 text-center">
+            <ResourceCount n={String(incidents.filter((i: any) => i.hospitals_notified).length).padStart(2, "0")} label="Ambulance" />
+            <ResourceCount n={String(incidents.filter((i: any) => i.firefighters_notified).length).padStart(2, "0")} label="Fire" />
+            <ResourceCount n={String(incidents.filter((i: any) => i.police_notified).length).padStart(2, "0")} label="Police" />
+            <ResourceCount n={String(incidents.filter((i: any) => i.engineers_notified).length).padStart(2, "0")} label="Engineers" />
           </div>
         </Card>
       </div>
