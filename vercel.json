@@ -1,6 +1,5 @@
 {
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "framework": null,
-  "rewrites": [{ "source": "/(.*)", "destination": "/__server" }]
+  "buildCommand": "bun run build",
+  "installCommand": "bun install",
+  "framework": null
 }
